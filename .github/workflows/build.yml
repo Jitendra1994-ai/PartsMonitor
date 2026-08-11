@@ -9,29 +9,39 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
-      - name: Find Android project
+      - name: Find and Extract ZIP
         run: |
-          echo "Finding Android project..."
-          find . -name "settings.gradle*" -o -name "build.gradle*" | head -30
+          ZIP=$(find . -maxdepth 2 -type f -name "*.zip" | head -1)
+          echo "Found ZIP: $ZIP"
+          mkdir -p project
+          unzip -o "$ZIP" -d project
+          echo "Extracted files:"
+          find project -maxdepth 3 -type f | head -100
+
+      - name: Find Android Project
+        run: |
+          PROJECT_DIR=$(find project -name "settings.gradle" -o -name "settings.gradle.kts" | head -1 | xargs dirname)
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Android project: $PROJECT_DIR"
 
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Build APK
-        working-directory: PartsMonitor_Android_Source
         run: |
+          cd "$PROJECT_DIR"
           gradle assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: PartsMonitor-APK
-          path: PartsMonitor_Android_Source/app/build/outputs/apk/debug/*.apk
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/*.apk
